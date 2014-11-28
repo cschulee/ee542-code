@@ -8,6 +8,7 @@
 import RPi.GPIO as GPIO
 
 class diff_drv:
+    """Rover differential drive class for two DRV8838 Motor Drivers"""
 
     # Signal Mnemonics
     LOW  = 0
@@ -17,72 +18,123 @@ class diff_drv:
     ENABLE  = 1
     DISABLE = 0
 
-    def __init__(self,PWM_L,PWM_R,PH_L,PH_R,EN_L,EN_R,FREQ):
-	GPIO.setmode(GPIO.BCM)
-	GPIO.setwarnings(False)
-	self.pwm_l = PWM_L
-	self.pwm_r = PWM_R
-	self.ph_l  = PH_L
-	self.ph_r   = PH_R
-	self.en_l  = EN_L
-	self.en_r  = EN_R
-        GPIO.setup(self.pwm_l, GPIO.OUT)
-        GPIO.setup(self.pwm_r, GPIO.OUT)
-        GPIO.setup(self.ph_l, GPIO.OUT)
-        GPIO.setup(self.ph_r, GPIO.OUT)
-        GPIO.setup(self.en_l, GPIO.OUT)
-        GPIO.setup(self.en_r, GPIO.OUT)
-        self.left  = GPIO.PWM(self.pwm_l,FREQ)
-        self.right = GPIO.PWM(self.pwm_r,FREQ)
-        GPIO.output(self.ph_l,diff_drv.FORWARD)
-        GPIO.output(self.ph_r,diff_drv.FORWARD)
-        GPIO.output(self.en_l,diff_drv.ENABLE)
-        GPIO.output(self.en_r,diff_drv.ENABLE)
-        self.left.start(0)
-        self.right.start(0)
-        self.spd_ctrl = diff_drv.ENABLE
+    def __init__(self,l_en_pin,l_phase_pin,l_sln_pin,r_en_pin,r_phase_pin,r_sln_pin,freq):
+        
+        # Set up GPIO interface
+        # BOARD addressing mode - pin numbers rather than GPIO numbers
+        GPIO.setmode(GPIO.BOARD)
+	    GPIO.setwarnings(False)
+        
+        # Assign arguments to local data
+	    self.l_en_pin     = l_en_pin    # Enable / PWM pin
+        self.l_en_freq    = freq        # PWM cycle frequency	    
+        self.l_phase_pin  = l_phase_pin # Phase pin
+        self.l_sln_pin    = l_sln_pin   # SLEEP NOT pin
+        self.r_en_pin     = r_en_pin    # Enable / PWM pin
+        self.r_en_freq    = freq        # PWM cycle frequency	   
+        self.r_phase_pin  = r_phase_pin # Phase pin
+        self.l_sln_pin    = r_sln_pin   # !Sleep pin
+        
+        # Configure pins as outputs
+        GPIO.setup(self.l_en_pin,    GPIO.OUT)
+        GPIO.setup(self.l_phase_pin, GPIO.OUT)
+        GPIO.setup(self.l_sln_pin,   GPIO.OUT)
+        GPIO.setup(self.r_en_pin,    GPIO.OUT)
+        GPIO.setup(self.r_phase_pin, GPIO.OUT)
+        GPIO.setup(self.r_sln_pin,   GPIO.OUT)
+        
+        # Define/configure PWM pins
+        self.l_en_pwm = GPIO.PWM(self.l_en_pin, self.l_en_freq)
+        self.r_en_pwm = GPIO.PWM(self.r_en_pin, self.r_en_freq)
+        
+        # Set up default states - forward phase, coast drive mode
+        self.l_phase = "FORWARD"
+        GPIO.output(self.l_phase_pin, diff_drv.FORWARD)
+        self.l_sln = "SLEEP"
+        GPIO.output(self.l_sln_pin,   diff_drv.DISABLE)
+        self.r_phase = "FORWARD"
+        GPIO.output(self.r_phase_pin, diff_drv.FORWARD)
+        self.r_sln = "SLEEP"
+        GPIO.output(self.r_sln_pin,   diff_drv.DISABLE)
+        self.l_en_pwm_cmd = 0
+        self.r_en_pwm_cmd = 0
+        
+        # Start software PWMs at zero duty cycle
+        self.l_en_pwm.start(0)
+        self.r_en_pwm.start(0)
+        
+        # Enable forward and rotational speed control
+        self.fwd_ctrl = diff_drv.ENABLE
         self.rot_ctrl = diff_drv.ENABLE
         return
 
-    def drive(self,spd_dc,rot_dc):
-        # Mix speed and rotation
+    def drive(self,fwd_dc, rot_dc, trim = 0):
+        # Mix speed, rotation, and trim
         # Speed is positive forward
         # Rotation is positive right per right hand rule
-        left_dc  = spd_dc - rot_dc
-        right_dc = spd_dc + rot_dc
-
-        if left_dc < 0:
-            GPIO.output(self.ph_l,diff_drv.REVERSE)
+        
+        # Add trim
+        self.trim = trim
+        rot_dc += self.trim
+        
+        # Handle control modes
+        if self.fwd_ctrl & self.rot_ctrl:
+            left_dc  = fwd_dc - rot_dc
+            right_dc = fwd_dc + rot_dc
+        elif self.fwd_ctrl:
+            left_dc  = fwd_dc
+            right_dc = fwd_dc
+        elif self.rot_ctrl:
+            left_dc  = -rot_dc
+            right_dc = rot_dc
         else:
-            GPIO.output(self.ph_l,diff_drv.FORWARD)
+            self.coast()
+            return
+        
+        # Direction/phase discretes
+        if left_dc < 0:
+            self.l_phase = "REVERSE"
+            GPIO.output(self.l_phase_pin, diff_drv.REVERSE)
+        else:
+            self.l_phase = "FORWARD"
+            GPIO.output(self.l_phase_pin, diff_drv.FORWARD)
 
         if right_dc < 0:
-            GPIO.output(self.ph_r,diff_drv.REVERSE)
+            self.r_phase = "REVERSE"
+            GPIO.output(self.r_phase_pin, diff_drv.REVERSE)
         else:
-            GPIO.output(self.ph_r,diff_drv.FORWARD)
+            self.r_phase = "FORWARD"
+            GPIO.output(self.r_pahse_pin, diff_drv.FORWARD)
 
-        self.left.ChangeDutyCycle(min(100,abs(left_dc)))
-        self.right.ChangeDutyCycle(min(100,abs(right_dc)))
+        # Change PWM duty cycle
+        self.l_en_pwm_cmd = min(100,abs(left_dc))
+        self.l_en_pwm.ChangeDutyCycle(self.l_en_pwm_cmd)
+        self.r_en_pwm_cmd = min(100,abs(right_dc))
+        self.r_en_pwm.ChangeDutyCycle(self.r_en_pwm_cmd)
         return
 
     def spd_ctrl_enable(self):
-        self.spd_ctrl = diff_drv.ENABLE
+        self.fwd_ctrl_enable = diff_drv.ENABLE
         return
 
     def spd_ctrl_disable(self):
-        self.spd_ctrl = diff_drv.DISABLE
+        self.fwd_ctrl_enable = diff_drv.DISABLE
         return
 
     def rot_ctrl_enable(self):
-        self.rot_ctrl = diff_drv.ENABLE
+        self.rot_ctrl_enable = diff_drv.ENABLE
         return
 
     def rot_ctrl_disable(self):
-        self.rot_ctrl = diff_drv.DISABLE
+        self.rot_ctrl_enable = diff_drv.DISABLE
         return
 
     def coast(self):
-        self.drive(0,0)
+        self.l_sln = "SLEEP"
+        GPIO.output(self.l_sln_pin,   diff_drv.DISABLE)
+        self.r_sln = "SLEEP"
+        GPIO.output(self.r_sln_pin,   diff_drv.DISABLE)
+        self.drive(0,0,self.trim)
         return
 
     def stop(self):
