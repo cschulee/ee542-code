@@ -23,17 +23,17 @@ class diff_drv:
         # Set up GPIO interface
         # BOARD addressing mode - pin numbers rather than GPIO numbers
         GPIO.setmode(GPIO.BOARD)
-	    GPIO.setwarnings(False)
+	GPIO.setwarnings(False)
         
         # Assign arguments to local data
-	    self.l_en_pin     = l_en_pin    # Enable / PWM pin
+	self.l_en_pin     = l_en_pin    # Enable / PWM pin
         self.l_en_freq    = freq        # PWM cycle frequency	    
         self.l_phase_pin  = l_phase_pin # Phase pin
         self.l_sln_pin    = l_sln_pin   # SLEEP NOT pin
         self.r_en_pin     = r_en_pin    # Enable / PWM pin
         self.r_en_freq    = freq        # PWM cycle frequency	   
         self.r_phase_pin  = r_phase_pin # Phase pin
-        self.l_sln_pin    = r_sln_pin   # !Sleep pin
+        self.r_sln_pin    = r_sln_pin   # !Sleep pin
         
         # Configure pins as outputs
         GPIO.setup(self.l_en_pin,    GPIO.OUT)
@@ -66,7 +66,6 @@ class diff_drv:
         # Enable forward and rotational speed control
         self.fwd_ctrl = diff_drv.ENABLE
         self.rot_ctrl = diff_drv.ENABLE
-        return
 
     def drive(self,fwd_dc, rot_dc, trim = 0):
         # Mix speed, rotation, and trim
@@ -104,30 +103,25 @@ class diff_drv:
             GPIO.output(self.r_phase_pin, diff_drv.REVERSE)
         else:
             self.r_phase = "FORWARD"
-            GPIO.output(self.r_pahse_pin, diff_drv.FORWARD)
+            GPIO.output(self.r_phase_pin, diff_drv.FORWARD)
 
         # Change PWM duty cycle
         self.l_en_pwm_cmd = min(100,abs(left_dc))
         self.l_en_pwm.ChangeDutyCycle(self.l_en_pwm_cmd)
         self.r_en_pwm_cmd = min(100,abs(right_dc))
         self.r_en_pwm.ChangeDutyCycle(self.r_en_pwm_cmd)
-        return
 
     def spd_ctrl_enable(self):
         self.fwd_ctrl_enable = diff_drv.ENABLE
-        return
 
     def spd_ctrl_disable(self):
         self.fwd_ctrl_enable = diff_drv.DISABLE
-        return
 
     def rot_ctrl_enable(self):
         self.rot_ctrl_enable = diff_drv.ENABLE
-        return
 
     def rot_ctrl_disable(self):
         self.rot_ctrl_enable = diff_drv.DISABLE
-        return
 
     def coast(self):
         self.l_sln = "SLEEP"
@@ -135,9 +129,11 @@ class diff_drv:
         self.r_sln = "SLEEP"
         GPIO.output(self.r_sln_pin,   diff_drv.DISABLE)
         self.drive(0,0,self.trim)
-        return
 
     def stop(self):
-        self.left.stop()
-        self.right.stop()
+        self.l_en_pwm.stop()
+        self.r_en_pwm.stop()
+
+    def cleanup(self):
+        GPIO.cleanup()
         

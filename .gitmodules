@@ -1,0 +1,6 @@
+[submodule "hmc5883l"]
+	path = hmc5883l
+	url = https://github.com/rm-hull/hmc5883l.git
+[submodule "nrf24pihub"]
+	path = nrf24pihub
+	url = https://github.com/riyas-org/nrf24pihub.git
