@@ -7,7 +7,7 @@
 
 import RPi.GPIO as GPIO
 
-from spidev import SpiDev as spidev
+import spidev
 import time
 import sys
 
@@ -270,11 +270,13 @@ pinInterrupt = 10
 pinLaserSelect = 26
 
 xydat = [0,0]
-	
+
+sensor = spidev.SpiDev(0,1)
+
 def opticalISR():
     GPIO.output(pinLaserSelect,GPIO.LOW)
-    xydat[0] = readRegister(REG_Delta_X_L)
-    xydat[1] = readRegister(REG_Delta_Y_L)
+    xydat[0] = readRegister([REG_Delta_X_L])
+    xydat[1] = readRegister([REG_Delta_Y_L])
     GPIO.output(pinLaserSelect,GPIO.HIGH)
       
 # Function: Send payload to register
@@ -282,15 +284,15 @@ def opticalISR():
 # 	value (hexidecimal) = value to send to register
 def writeRegister(reg, val):
     GPIO.output(pinLaserSelect,GPIO.LOW)
-    spidev.xfer2(reg | 0x80)	
-    spidev.xfer2(val)
+    sensor.xfer2([reg | 0x80])	
+    sensor.xfer2([val])
     GPIO.output(pinLaserSelect,GPIO.HIGH)
 		
 # Function: Return payload from register
 # 	reg (hexidecimal)   = register to read from
 def readRegister(reg):
     GPIO.output(pinLaserSelect,GPIO.LOW)
-    toReturn = spidev.xfer2(reg)
+    toReturn = sensor.xfer2([reg])
     GPIO.output(pinLaserSelect,GPIO.HIGH)
     return toReturn
 
@@ -344,7 +346,7 @@ time.sleep(15/1000000.0)
 # send all bytes of the firmware
 for i in range (0, firmwareLength): 
     c = firmware[i]
-    spidev.xfer2(c)
+    sensor.xfer2([c])
     time.sleep(15/1000000)
   
 GPIO.output(pinLaserSelect,GPIO.HIGH)
@@ -354,7 +356,7 @@ GPIO.output(pinLaserSelect,GPIO.HIGH)
 # default value is different from what is said in the datasheet, and if you
 # change the reserved bytes (like by writing 0x00...) it would not work.
 laser_ctrl0 = readRegister(REG_LASER_CTRL0)
-writeRegister(REG_LASER_CTRL0, laser_ctrl0 & 0xf0 )
+writeRegister(REG_LASER_CTRL0, laser_ctrl0 & 0xf0)
   
 time.sleep(1/1000)
 print("Optical Chip Initialized")
