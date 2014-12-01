@@ -1,7 +1,3 @@
-                                                                     
-                                                                     
-                                                                     
-                                             
 # Optical laser sensor main program
 # Author: David Li <Davecyli@gmail.com>
 
@@ -341,8 +337,8 @@ writeRegister(REG_SROM_Enable, 0x18)
   
 # write the SROM file (=firmware data) 
 GPIO.output(pinLaserSelect,GPIO.LOW)
-GPIO.output(REG_SROM_Load_Burst | 0x80); # write burst destination adress
-time.sleep(15/1000000.0)
+sensor.xfer2([REG_SROM_Load_Burst | 0x80]) # start firmware transfer with burst destination address	
+
 # send all bytes of the firmware
 for i in range (0, firmwareLength): 
     c = firmware[i]
@@ -365,5 +361,3 @@ print("Optical Chip Initialized")
 # Loop
 while True:
     print(xydat[0] + " " + xydat[1])
-
- 
