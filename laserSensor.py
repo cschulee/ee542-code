@@ -269,28 +269,36 @@ xydat = [0,0]
 
 sensor = spidev.SpiDev(0,1)
 
-def opticalISR():
+def opticalISR(channel):
     GPIO.output(pinLaserSelect,GPIO.LOW)
-    xydat[0] = readRegister([REG_Delta_X_L])
-    xydat[1] = readRegister([REG_Delta_Y_L])
+    xydat[0] = readRegister(REG_Delta_X_L)
+    xydat[1] = readRegister(REG_Delta_Y_L)
     GPIO.output(pinLaserSelect,GPIO.HIGH)
+    print str(xydat[0]) + " " + str(xydat[1])
       
 # Function: Send payload to register
 # 	reg (hexidecimal)   = register to write to
 # 	value (hexidecimal) = value to send to register
 def writeRegister(reg, val):
+    buf = [reg | 0x80,val]
     GPIO.output(pinLaserSelect,GPIO.LOW)
-    sensor.xfer2([reg | 0x80])	
-    sensor.xfer2([val])
+    time.sleep(100/1000000)
+    result = sensor.xfer2(buf)
     GPIO.output(pinLaserSelect,GPIO.HIGH)
+    return result[0]
 		
 # Function: Return payload from register
 # 	reg (hexidecimal)   = register to read from
 def readRegister(reg):
+    buf = [reg & 0x7f]
     GPIO.output(pinLaserSelect,GPIO.LOW)
-    toReturn = sensor.xfer2([reg])
+    time.sleep(100/1000000)
+    sensor.xfer2(buf)
+    time.sleep(100/1000000)
+    result = sensor.xfer2([0])
+    time.sleep(1/1000000)
     GPIO.output(pinLaserSelect,GPIO.HIGH)
-    return toReturn
+    return result[0]
 
 ##### INITIALIZATION BLOCK #####
 # Pin layout specified by physical pin location onboard 
@@ -309,6 +317,7 @@ time.sleep(10 / 1000000.0)
 GPIO.output(pinLaserSelect,GPIO.LOW)
 time.sleep(10 / 1000000.0)
 GPIO.output(pinLaserSelect,GPIO.HIGH)
+time.sleep(10 / 1000000.0)
 
 # Write 0x5a to register to reset chip. All settings will default.
 writeRegister(REG_Power_Up_Reset, 0x5A)
@@ -338,12 +347,14 @@ writeRegister(REG_SROM_Enable, 0x18)
 # write the SROM file (=firmware data) 
 GPIO.output(pinLaserSelect,GPIO.LOW)
 sensor.xfer2([REG_SROM_Load_Burst | 0x80]) # start firmware transfer with burst destination address	
+time.sleep(15/1000000)
 
 # send all bytes of the firmware
 for i in range (0, firmwareLength): 
     c = firmware[i]
     sensor.xfer2([c])
     time.sleep(15/1000000)
+#sensor.xfer2(firmware)
   
 GPIO.output(pinLaserSelect,GPIO.HIGH)
    
@@ -360,4 +371,5 @@ print("Optical Chip Initialized")
 
 # Loop
 while True:
-    print(xydat[0] + " " + xydat[1])
+    print 'alive'
+    time.sleep(2)
