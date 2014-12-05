@@ -66,6 +66,7 @@ GPIO.add_event_detect(18, GPIO.FALLING, callback = msg_cb)
 
 # Define interrupt callbacks and compass thread
 def mot_cb():
+    print '  MOTION CALLBACK'
     #TODO what should be done when motion is detected
 
 def msg_cb():
@@ -116,7 +117,7 @@ def update_spot():
     global radio_payload
     global spot
     if radio_payload.find(players[0]) == 0:
-        global spot = int(radio_payload[-1])
+        spot = int(radio_payload[-1])
 
 def update_form():
     global radio_paylaod
