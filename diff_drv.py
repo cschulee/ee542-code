@@ -20,11 +20,6 @@ class diff_drv:
 
     def __init__(self,l_en_pin,l_phase_pin,l_sln_pin,r_en_pin,r_phase_pin,r_sln_pin,freq):
         
-        # Set up GPIO interface
-        # BOARD addressing mode - pin numbers rather than GPIO numbers
-        GPIO.setmode(GPIO.BOARD)
-	GPIO.setwarnings(False)
-        
         # Assign arguments to local data
 	self.l_en_pin     = l_en_pin    # Enable / PWM pin
         self.l_en_freq    = freq        # PWM cycle frequency	    

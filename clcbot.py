@@ -102,6 +102,7 @@ def get_heading(DELTAT):
 
 def wait():
     global mode
+    print '  WAIT'
     drive.coast()
 
 def report_id():
