@@ -270,10 +270,11 @@ sensor = spidev.SpiDev(0,1)
 sensor.bits_per_word = 8
 sensor.mode = 0b11
 
-motion_data = {'last':[0,0,0]}
+global prev_data
 global x_sum
-x_sum = 0
 global y_sum
+prev_data = [0,0,0]
+x_sum = 0
 y_sum = 0
 
 # Two's compliment: stackoverflow.com/questions/1604464
@@ -283,25 +284,34 @@ def twos_comp(val,bits):
     return val
 
 def opticalISR(channel):
+    global prev_data
     global x_sum
     global y_sum
     readRegister(REG_Motion) # Prepare chip for motion read
     now = time.time()
-    deltaX = readRegister(REG_Delta_X_L) | readRegister(REG_Delta_X_H) << 8
-    deltaX = twos_comp(deltaX,16)
-    deltaY = readRegister(REG_Delta_Y_L) | readRegister(REG_Delta_Y_H) << 8
-    deltaY = twos_comp(deltaY,16)    
-    motion_data['this'] = [now,deltaX,deltaY]
-    deltat = now - motion_data['last'][0]
+    
+    x_lsb  = readRegister(REG_Delta_X_L)
+    x_msb  = readRegister(REG_Delta_X_H)
+    deltaX = (twos_comp( x_lsb | ( x_msb << 8 ) ,16)) / 90000.
+                          
+    y_lsb  = readRegister(REG_Delta_Y_L)
+    y_msb  = readRegister(REG_Delta_Y_H)
+    deltaY = (twos_comp( y_lsb | ( y_msb << 8 ) ,16)) / 90000.
+
+    deltat = now - prev_data[0]
+                          
     xspd = deltaX/deltat
     yspd = deltaY/deltat
     x_sum += deltaX
     y_sum += deltaY
     
     #print str(xydat[0]) + " " + str(xydat[1])
-    print "sum: " + str(x_sum) + ", " + str(y_sum) + "   speed: " + str(xspd) + ", " + str(yspd)
+    out = "delta: "  + str(int(deltaX)) + ", " + str(int(deltaY)) + " "
+    out += "sum: "   + str(int(x_sum))  + ", " + str(int(y_sum))  + " "
+    out += "speed: " + str(int(xspd))   + ", " + str(int(yspd))
+    print out
 
-    motion_data['last'] = [now,deltaX,deltaY]
+    prev_data = [now,deltaX,deltaY]
       
 # Function: Send payload to register
 # 	reg (hexidecimal)   = register to write to
