@@ -263,61 +263,55 @@ firmware = [ 0x03, 0xa4, 0x6e, 0x16, 0x6d, 0x89, 0x3e, 0xfe, 0x5f, 0x1c, 0xb8, 0
 firmwareLength = len(firmware)
 
 pinInterrupt = 10
-pinLaserSelect = 26
-
 xydat = [0,0]
 
 sensor = spidev.SpiDev(0,1)
+sensor.bits_per_word = 8
+sensor.mode = 0b11
 
 def opticalISR(channel):
-    GPIO.output(pinLaserSelect,GPIO.LOW)
     xydat[0] = readRegister(REG_Delta_X_L)
     xydat[1] = readRegister(REG_Delta_Y_L)
-    GPIO.output(pinLaserSelect,GPIO.HIGH)
     print str(xydat[0]) + " " + str(xydat[1])
       
 # Function: Send payload to register
 # 	reg (hexidecimal)   = register to write to
 # 	value (hexidecimal) = value to send to register
 def writeRegister(reg, val):
-    buf = [reg | 0x80,val]
-    GPIO.output(pinLaserSelect,GPIO.LOW)
+    buf = [reg | 0x80, int(val & 0xff)]
+    delay_usecs = 20
+    response = sensor.xfer2(buf,0,delay_usecs)[0]
     time.sleep(100/1000000)
-    result = sensor.xfer2(buf)
-    GPIO.output(pinLaserSelect,GPIO.HIGH)
-    return result[0]
+    return response
 		
 # Function: Return payload from register
 # 	reg (hexidecimal)   = register to read from
 def readRegister(reg):
-    buf = [reg & 0x7f]
-    GPIO.output(pinLaserSelect,GPIO.LOW)
-    time.sleep(100/1000000)
-    sensor.xfer2(buf)
-    time.sleep(100/1000000)
-    result = sensor.xfer2([0])
-    time.sleep(1/1000000)
-    GPIO.output(pinLaserSelect,GPIO.HIGH)
-    return result[0]
+    delay_usecs = 100
+#    sensor.xfer2([reg & 0x7f],0,delay_usecs)
+#    delay_usecs = 1
+#    response = sensor.xfer2([0x00],0,delay_usecs)[0]
+    buf = [reg & 0x7f,0x00]
+    response = sensor.xfer2(buf,0,delay_usecs)[1]
+    time.sleep(20/1000000)
+    return response
 
 ##### INITIALIZATION BLOCK #####
-# Pin layout specified by physical pin location onboard 
 GPIO.setmode(GPIO.BOARD)
 
 # Initialize pin 10 as interrupt (set up with pull down resistor)
 GPIO.setup(pinInterrupt,GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(pinInterrupt,GPIO.FALLING, callback=opticalISR)
 
-# Initialize pin 26 as CE01
-GPIO.setup(pinLaserSelect,GPIO.OUT)
-
 # Reset SPI Port (NCS Chip active low)
-GPIO.output(pinLaserSelect,GPIO.HIGH)
+#GPIO.output(pinLaserSelect,GPIO.HIGH)
+sensor.cshigh = True
 time.sleep(10 / 1000000.0)
-GPIO.output(pinLaserSelect,GPIO.LOW)
+#GPIO.output(pinLaserSelect,GPIO.LOW)
+sensor.cshigh = False
 time.sleep(10 / 1000000.0)
-GPIO.output(pinLaserSelect,GPIO.HIGH)
-time.sleep(10 / 1000000.0)
+#GPIO.output(pinLaserSelect,GPIO.HIGH)
+#time.sleep(10 / 1000000.0)
 
 # Write 0x5a to register to reset chip. All settings will default.
 writeRegister(REG_Power_Up_Reset, 0x5A)
@@ -333,8 +327,10 @@ readRegister(REG_Delta_Y_H)
 # send the firmware to the chip, cf p.18 of the datasheet
 print("Uploading firmware...");
 # set the configuration_IV register in 3k firmware mode
-writeRegister(REG_Configuration_IV, 0x02) # bit 1 = 1 for 3k mode, other bits are reserved 
-  
+config_register = readRegister(REG_Configuration_IV)
+writeRegister(REG_Configuration_IV, config_register | 0x02) # bit 1 = 1 for 3k mode, other bits are reserved 
+time.sleep(50 / 1000.0)
+
 # write 0x1d in SROM_enable reg for initializing
 writeRegister(REG_SROM_Enable, 0x1d)
   
@@ -343,33 +339,28 @@ time.sleep(10/1000.0); # assume that the frame rate is as low as 100fps... even 
   
 # write 0x18 to SROM_enable to start SROM download
 writeRegister(REG_SROM_Enable, 0x18)
-  
-# write the SROM file (=firmware data) 
-GPIO.output(pinLaserSelect,GPIO.LOW)
-sensor.xfer2([REG_SROM_Load_Burst | 0x80]) # start firmware transfer with burst destination address	
-time.sleep(15/1000000)
+time.sleep(50 / 1000.0)
 
+# write the SROM file (=firmware data) 
+#sensor.xfer2([REG_SROM_Load_Burst | 0x80]) # start firmware transfer with burst destination address	
+#time.sleep(15/1000000)
+firmware.insert(0,REG_SROM_Load_Burst | 0x80)
 # send all bytes of the firmware
-for i in range (0, firmwareLength): 
-    c = firmware[i]
-    sensor.xfer2([c])
-    time.sleep(15/1000000)
-#sensor.xfer2(firmware)
-  
-GPIO.output(pinLaserSelect,GPIO.HIGH)
+#for i in range (0, firmwareLength): 
+#    c = firmware[i]
+#    sensor.writebytes([c])
+#    time.sleep(15/1000000)
+sensor.xfer2(firmware)
+ 
+#GPIO.output(pinLaserSelect,GPIO.HIGH)
    
 # enable laser(bit 0 = 0b), in normal mode (bits 3,2,1 = 000b)
 # reading the actual value of the register is important because the real
 # default value is different from what is said in the datasheet, and if you
 # change the reserved bytes (like by writing 0x00...) it would not work.
 laser_ctrl0 = readRegister(REG_LASER_CTRL0)
-writeRegister(REG_LASER_CTRL0, laser_ctrl0 & 0xf0)
+writeRegister(REG_LASER_CTRL0, laser_ctrl0 & 0xfe)
   
 time.sleep(1/1000)
 print("Optical Chip Initialized")
 ##### END INITIALIZATION BLOCK #####
-
-# Loop
-while True:
-    print 'alive'
-    time.sleep(2)
