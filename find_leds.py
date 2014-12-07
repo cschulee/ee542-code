@@ -17,6 +17,10 @@ import numpy as np
 
 # Connect to pi camera and capture image
 camera = picamera.PiCamera()
+
+camera.hflip = True
+camera.vflip = True
+camera.resolution = (500,400)
 camera.capture('image.jpg')
 camera.close()
 
@@ -36,7 +40,10 @@ hsv_img = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 img_threshed = cv2.inRange(hsv_img, GREEN_MIN, GREEN_MAX)
 
 # Find the circles
-circles = cv2.HoughCircles(img_threshed,cv2.cv.CV_HOUGH_GRADIENT,1,75,param1=100,param2=5,minRadius=0,maxRadius=25)
+circles = cv2.HoughCircles(img_threshed,cv2.cv.CV_HOUGH_GRADIENT,5,75,param1=100,param2=5,minRadius=0,maxRadius=25)
+
+# Throw out outliers
+
 
 # Temporary - mark the circles
 for i in circles[0,:]:
@@ -46,3 +53,8 @@ for i in circles[0,:]:
 # Temprary - save the files back to disk to view later
 cv2.imwrite('img_threshed.jpg',img_threshed)
 cv2.imwrite('marked_image.jpg',img)
+
+avg_x = np.average([x[0] for x in circles[0]])
+h = abs(circles[0][0][1] - circles[0][1][1])
+
+
