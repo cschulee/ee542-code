@@ -6,6 +6,7 @@ import RPi.GPIO as GPIO
 import spidev
 import time
 import sys
+import Queue
 
 # Registers
 REG_Product_ID                           = 0x00
@@ -269,10 +270,38 @@ sensor = spidev.SpiDev(0,1)
 sensor.bits_per_word = 8
 sensor.mode = 0b11
 
+motion_data = {'last':[0,0,0]}
+global x_sum
+x_sum = 0
+global y_sum
+y_sum = 0
+
+# Two's compliment: stackoverflow.com/questions/1604464
+def twos_comp(val,bits):
+    if( val & 1 << (bits-1) != 0 ):
+        val -= 1 << bits
+    return val
+
 def opticalISR(channel):
-    xydat[0] = readRegister(REG_Delta_X_L)
-    xydat[1] = readRegister(REG_Delta_Y_L)
-    print str(xydat[0]) + " " + str(xydat[1])
+    global x_sum
+    global y_sum
+    readRegister(REG_Motion) # Prepare chip for motion read
+    now = time.time()
+    deltaX = readRegister(REG_Delta_X_L) | readRegister(REG_Delta_X_H) << 8
+    deltaX = twos_comp(deltaX,16)
+    deltaY = readRegister(REG_Delta_Y_L) | readRegister(REG_Delta_Y_H) << 8
+    deltaY = twos_comp(deltaY,16)    
+    motion_data['this'] = [now,deltaX,deltaY]
+    deltat = now - motion_data['last'][0]
+    xspd = deltaX/deltat
+    yspd = deltaY/deltat
+    x_sum += deltaX
+    y_sum += deltaY
+    
+    #print str(xydat[0]) + " " + str(xydat[1])
+    print "sum: " + str(x_sum) + ", " + str(y_sum) + "   speed: " + str(xspd) + ", " + str(yspd)
+
+    motion_data['last'] = [now,deltaX,deltaY]
       
 # Function: Send payload to register
 # 	reg (hexidecimal)   = register to write to
@@ -288,9 +317,6 @@ def writeRegister(reg, val):
 # 	reg (hexidecimal)   = register to read from
 def readRegister(reg):
     delay_usecs = 100
-#    sensor.xfer2([reg & 0x7f],0,delay_usecs)
-#    delay_usecs = 1
-#    response = sensor.xfer2([0x00],0,delay_usecs)[0]
     buf = [reg & 0x7f,0x00]
     response = sensor.xfer2(buf,0,delay_usecs)[1]
     time.sleep(20/1000000)
@@ -304,14 +330,10 @@ GPIO.setup(pinInterrupt,GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.add_event_detect(pinInterrupt,GPIO.FALLING, callback=opticalISR)
 
 # Reset SPI Port (NCS Chip active low)
-#GPIO.output(pinLaserSelect,GPIO.HIGH)
 sensor.cshigh = True
 time.sleep(10 / 1000000.0)
-#GPIO.output(pinLaserSelect,GPIO.LOW)
 sensor.cshigh = False
 time.sleep(10 / 1000000.0)
-#GPIO.output(pinLaserSelect,GPIO.HIGH)
-#time.sleep(10 / 1000000.0)
 
 # Write 0x5a to register to reset chip. All settings will default.
 writeRegister(REG_Power_Up_Reset, 0x5A)
@@ -342,14 +364,7 @@ writeRegister(REG_SROM_Enable, 0x18)
 time.sleep(50 / 1000.0)
 
 # write the SROM file (=firmware data) 
-#sensor.xfer2([REG_SROM_Load_Burst | 0x80]) # start firmware transfer with burst destination address	
-#time.sleep(15/1000000)
 firmware.insert(0,REG_SROM_Load_Burst | 0x80)
-# send all bytes of the firmware
-#for i in range (0, firmwareLength): 
-#    c = firmware[i]
-#    sensor.writebytes([c])
-#    time.sleep(15/1000000)
 sensor.xfer2(firmware)
  
 #GPIO.output(pinLaserSelect,GPIO.HIGH)
