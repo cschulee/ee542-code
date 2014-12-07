@@ -19,6 +19,9 @@ class diff_drv:
     DISABLE = 0
 
     def __init__(self,l_en_pin,l_phase_pin,l_sln_pin,r_en_pin,r_phase_pin,r_sln_pin,freq):
+
+        # GPIO numbering mode
+        GPIO.setmode(GPIO.BOARD)
         
         # Assign arguments to local data
 	self.l_en_pin     = l_en_pin    # Enable / PWM pin
@@ -62,7 +65,7 @@ class diff_drv:
         self.fwd_ctrl = diff_drv.ENABLE
         self.rot_ctrl = diff_drv.ENABLE
 
-    def drive(self,fwd_dc, rot_dc, trim = 0):
+    def drive(self,fwd_dc, rot_dc=0, trim=0):
         # Mix speed, rotation, and trim
         # Speed is positive forward
         # Rotation is positive right per right hand rule
@@ -73,14 +76,14 @@ class diff_drv:
         
         # Handle control modes
         if self.fwd_ctrl & self.rot_ctrl:
-            left_dc  = fwd_dc - rot_dc
-            right_dc = fwd_dc + rot_dc
+            left_dc  = fwd_dc - rot_dc/2
+            right_dc = fwd_dc + rot_dc/2
         elif self.fwd_ctrl:
             left_dc  = fwd_dc
             right_dc = fwd_dc
         elif self.rot_ctrl:
-            left_dc  = -rot_dc
-            right_dc = rot_dc
+            left_dc  = -rot_dc/2
+            right_dc = rot_dc/2
         else:
             self.coast()
             return
@@ -106,6 +109,12 @@ class diff_drv:
         self.r_en_pwm_cmd = min(100,abs(right_dc))
         self.r_en_pwm.ChangeDutyCycle(self.r_en_pwm_cmd)
 
+        # Ensure sleep is removed
+        self.l_sln = "ENABLE"
+        GPIO.output(self.l_sln_pin,   diff_drv.ENABLE)
+        self.l_sln = "ENABLE"
+        GPIO.output(self.r_sln_pin,   diff_drv.ENABLE)
+
     def spd_ctrl_enable(self):
         self.fwd_ctrl_enable = diff_drv.ENABLE
 
@@ -119,11 +128,11 @@ class diff_drv:
         self.rot_ctrl_enable = diff_drv.DISABLE
 
     def coast(self):
+	self.drive(0,0,self.trim)
         self.l_sln = "SLEEP"
         GPIO.output(self.l_sln_pin,   diff_drv.DISABLE)
         self.r_sln = "SLEEP"
         GPIO.output(self.r_sln_pin,   diff_drv.DISABLE)
-        self.drive(0,0,self.trim)
 
     def stop(self):
         self.l_en_pwm.stop()
