@@ -8,7 +8,7 @@ from nrf24pihub import NRF24
 import numpy as np
 import RPi.GPIO as GPIO
 import random as rand
-import picamera, cv2, diff_drv, threading, time, string, math
+import picamera, cv2, diff_drv, threading, time, string, math,io
 
 # Global data
 global compass
@@ -147,6 +147,46 @@ def track():
     global master_rot
     print '  TRACKING FWD: ' + str(master_fwd) + ' ROT ' + str(master_rot)
     drive.drive(master_fwd,master_rot)
+
+def navigate(x,y): # In inches
+    global heading
+    global master_hdg
+
+    if (x = 0) & (y = 0):
+        return
+
+    if abs(x) > 6 : # Only adjust for lateral excursions > 6 inches
+        
+        master_hdg_mem = master_hdg
+        if y > 0 :
+            master_hdg = np.tanh(float(y/x)) * 180 / np.pi
+        elif (y < 0) & (x < 0):
+            master_hdg = np.tanh(float(y/x)) * 180 / np.pi - 90
+        else:
+            master_hdg = np.tanh(float(y/x)) * 180 / np.pi + 90
+
+        align() # To trajectory heading
+
+        dist = np.sqrt(x^2 + y^2)
+        sign = 1
+
+    else: # Just drive to Y
+        dist = abs(y)
+
+        if y > 0:
+            sign = 1
+        else:
+            sign = -1
+
+    drivet = dist / 10
+    tstart = time.time()
+
+    while time.time() - tstart < drivet:
+        drive.drive(10)
+
+    drive.coast()
+    master_hdg = master_hdg_mem
+    align()
     
 def master():
     global mode
