@@ -330,10 +330,18 @@ class adns9800:
 
 
     # Two's compliment: stackoverflow.com/questions/1604464
-    def twos_comp(val,bits):
-        if( val & 1 << (bits-1) != 0 ):
-            val -= 1 << bits
-        return val
+    #def twos_comp(val,bits):
+    #    if( val & 1 << (bits-1) != 0 ):
+    #        val -= 1 << bits
+    #    return val
+    
+    # Two's compliment: Reversed bit shift to correct direction? 
+    def twos_comp(msb, lsb):
+	    if (msb >> 7 == 0 ):
+	        return = dec(msb<<8 + lsb) # if 15th bit is 0, or 16 bit number is positive
+	    else:
+	        return = -1*dec(~(msb<<8+lsb)+1) #if 15th bit is 1, or 16 bit number is negative
+
 
     def opticalISR(channel):
         self.readRegister(REG_Motion) # Prepare chip for motion read
