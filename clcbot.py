@@ -21,12 +21,16 @@ global reset_watchdog
 global radio_payload
 global players
 global form
+global spot
 global me
 
 # Initialize sensors
 compass = hmc5883l()
-camera  = picamera.PiCamera()
+
+# Initialize motor driver
 drive   = diff_drv.diff_drv(4,17,27,22,23,24,185)
+
+# Initialize laser sensor
 #mouse   = adns9800()
 
 # Initialize radio
@@ -42,6 +46,15 @@ radio.setAutoAck(1)
 radio.openWritingPipe(pipes[0])
 radio.openReadingPipe(1, pipes[1])
 radio.startListening()
+
+# Initialize camera
+camera = picamera.PiCamera()
+camera.hflip = True
+camera.vflip = True
+global CAMERA_WIDTH, CAMERA_HEIGHT
+CAMERA_WIDTH  = 320
+CAMERA_HEIGHT = 240
+camera.resolution = (CAMERA_WIDTH,CAMERA_HEIGHT)
 
 # List of possible radio commands from master
 global cmds
@@ -138,7 +151,57 @@ def align():
         drive.drive(0,10)
 
 def assemble(pos):
+    global spot, CAMERA_WIDTH, CAMERA_HEIGHT
     print '  GOING TO ASSEMBLY'
+
+    # Define position offsets
+    offsets = [[0,0],[0,16],[16,0],[16,16]]
+    target_pos = offsets[spot]
+
+    # Define camera distance scale factor
+    SCALE_FACTOR = 1
+
+    # Capture image
+    IMAGE        = '/home/pi/ee542-code/images/align.jpg'
+    IMAGE_THRESH = '/home/pi/ee542-code/images/align_threshed.jpg'
+    IMAGE_MARKED = '/home/pi/ee542-code/images/align_marked.jpg'
+    camera.capture(IMAGE)
+    img = cv2.imread(IMAGE)
+
+    # Convert img to Hue, Saturation, Value format
+    hsv_img = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+
+    # Define min and max color range
+    GREEN_MIN = np.array([25,100,200],np.uint8)
+    GREEN_MAX = np.array([80,220,255],np.uint8)
+
+    # Threshold the image - results in b&w graphic where
+    #  in-threshold pixels are white and out-of-threshold
+    #  pixels are black
+    img_threshed = cv2.inRange(hsv_img, GREEN_MIN, GREEN_MAX)
+
+    # Find the circles
+    circles = cv2.HoughCircles(img_threshed,cv2.cv.CV_HOUGH_GRADIENT,5,75,param1=100,param2=5,minRadius=0,maxRadius=25)
+
+    # Mark the circles
+    for i in circles[0,:]:
+        cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
+	cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
+
+    # Save the files back to disk to view later
+    cv2.imwrite(IMAGE_THRESHED,img_threshed)
+    cv2.imwrite(IMAGE_MARKED,img)
+
+    # Find average x and height of targets
+    avg_x = np.average([x[0] for x in circles[0]])
+    h = abs(circles[0][0][1] - circles[0][1][1])
+
+    # Determine offsets
+    x_offset = target_pos[0] - ((avg_x - CAMERA_WIDTH/2) * SCALE_FACTOR)
+    y_offset = target_pos[1] - (h * SCALE_FACTOR)
+
+    # Go to position
+    navigate(x_offset,y_offset)    
     radio.write(me)
 
 
@@ -258,6 +321,7 @@ def master():
             radio.write(master_rot)
             radio.write('update_rot')
             radio.write('track')
+            track()
 
         # Track backward 10 sec
         master_fwd = -10

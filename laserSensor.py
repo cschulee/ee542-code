@@ -292,11 +292,11 @@ def opticalISR(channel):
     
     x_lsb  = readRegister(REG_Delta_X_L)
     x_msb  = readRegister(REG_Delta_X_H)
-    deltaX = (twos_comp( x_lsb | ( x_msb << 8 ) ,16)) / 90000.
+    deltaX = (twos_comp( x_lsb | ( x_msb << 8 ) ,16)) / 450.
                           
     y_lsb  = readRegister(REG_Delta_Y_L)
     y_msb  = readRegister(REG_Delta_Y_H)
-    deltaY = (twos_comp( y_lsb | ( y_msb << 8 ) ,16)) / 90000.
+    deltaY = (twos_comp( y_lsb | ( y_msb << 8 ) ,16)) / 450.
 
     deltat = now - prev_data[0]
                           

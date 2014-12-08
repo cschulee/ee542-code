@@ -20,12 +20,16 @@ camera = picamera.PiCamera()
 
 camera.hflip = True
 camera.vflip = True
-camera.resolution = (500,400)
-camera.capture('image.jpg')
-camera.close()
+CAMERA_WIDTH  = 320
+CAMERA_HEIGHT = 240
+camera.resolution = (CAMERA_WIDTH,CAMERA_HEIGHT)
 
-# Load image into python Open Computer Vision object
-img = cv2.imread('/home/pi/ee542-code/image.jpg')
+IMAGE        = '/home/pi/ee542-code/images/align.jpg'
+IMAGE_THRESH = '/home/pi/ee542-code/images/align_threshed.jpg'
+IMAGE_MARKED = '/home/pi/ee542-code/images/align_marked.jpg'
+camera.capture(IMAGE)
+img = cv2.imread(IMAGE)
+camera.close()
 
 # Define min and max color range
 GREEN_MIN = np.array([25,100,200],np.uint8)
