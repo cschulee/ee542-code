@@ -78,7 +78,6 @@ def msg_cb(channel):
     radio.read(recv_buffer)
     radio.flush_rx()
     msg = null_char_strip(''.join(chr(i) for i in recv_buffer))
-    print '---COMMAND RECEIVED---  ' + msg
 
     #Clear IRQ
     radio.write_register(radio.STATUS,
@@ -86,6 +85,7 @@ def msg_cb(channel):
 
     if msg in cmds.keys():
         reset_watchdog = 1
+        print '---COMMAND RECEIVED---  ' + msg
         cmds[msg]()
     else:
         radio_payload = msg
@@ -283,6 +283,7 @@ def master():
     global players
     global me
     global form
+    global radio_payload
     
     print 'MASTER MODE'
 
@@ -388,6 +389,7 @@ def master():
 def slave():
     global mode
     global reset_watchdog
+    global radio_payload
     print 'SLAVE MODE'
 
     # Start watchdog with random timeout between [25,35] interval
