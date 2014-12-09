@@ -78,7 +78,7 @@ def msg_cb(channel):
     radio.read(recv_buffer)
     radio.flush_rx()
     msg = null_char_strip(''.join(chr(i) for i in recv_buffer))
-    print '---MESSAGE RECEIVED---  ' + msg
+    print '---COMMAND RECEIVED---  ' + msg
 
     #Clear IRQ
     radio.write_register(radio.STATUS,
@@ -89,6 +89,7 @@ def msg_cb(channel):
         cmds[msg]()
     else:
         radio_payload = msg
+        reset_watchdog = 1
 
 def send_msg(payload):
     radio.stopListening()
@@ -320,9 +321,9 @@ def master():
                 send_msg(players[x] + str(x))
                 send_msg('update_spot')
 
-        # 30 sec align to current heading
+        # 10 sec align to current heading
         start = time.time()
-        while time.time() - start < 30:
+        while time.time() - start < 10:
             master_hdg = heading
             send_msg(str(master_hdg))
             send_msg('update_hdg')
