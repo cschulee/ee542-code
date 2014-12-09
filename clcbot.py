@@ -304,7 +304,7 @@ def master():
         while (len(players) < 4) & ((time.time() - start) < 10):
             send_msg('report_id')
 
-         if len(players) == 4:
+        if len(players) == 4:
             form = 'quad'
         else:
             form = 'tri'
