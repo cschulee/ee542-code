@@ -25,6 +25,7 @@ global players
 global form
 global spot
 global me
+global circles
 
 # Initialize sensors
 compass = hmc5883l()
@@ -162,7 +163,7 @@ def align():
         drive.drive(0,10)
 
 def assemble():
-    global spot, CAMERA_WIDTH, CAMERA_HEIGHT
+    global spot, CAMERA_WIDTH, CAMERA_HEIGHT, circles
     print '  GOING TO ASSEMBLY'
 
     # Define position offsets
@@ -202,7 +203,7 @@ def assemble():
             cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
 
         # Save the files back to disk to view later
-        cv2.imwrite(IMAGE_THRESHED,img_threshed)
+        cv2.imwrite(IMAGE_THRESH,img_threshed)
         cv2.imwrite(IMAGE_MARKED,img)
 
         # Find average x and height of targets
@@ -339,12 +340,13 @@ def master():
 
         # 10 sec align to current heading
         print '  ALIGN, PLEASE...'
+        master_hdg = heading
+        send_msg(str(master_hdg))
+        send_msg('update_hdg')
+        send_msg('align')
         start = time.time()
         while time.time() - start < 10:
-            master_hdg = heading
-            send_msg(str(master_hdg))
-            send_msg('update_hdg')
-            send_msg('align')
+            continue
             
         # Assemble into formation
         print '  ASSEMBLE, PLEASE...'
@@ -396,7 +398,14 @@ def master():
 
         # Turn 180 deg and start over
         master_hdg = math.fmod(heading +180, 360)
+        send_msg(str(master_hdg))
+        send_msg('update_hdg')
+        send_msg('align')
         align()
+        start = time.time()
+        while time.time() - start < 10:
+            continue
+
         continue
 
     # If knocked off, mode change to slave
