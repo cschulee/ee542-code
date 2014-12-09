@@ -96,7 +96,7 @@ def msg_cb(channel):
 def send_msg(payload):
     GPIO.setmode(GPIO.BCM)
     radio.stopListening()
-    radio.write(payload)
+    ok = radio.write(payload)
     radio.startListening()
     GPIO.setmode(GPIO.BOARD)
 

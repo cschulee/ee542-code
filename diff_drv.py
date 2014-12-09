@@ -24,8 +24,8 @@ class diff_drv:
         GPIO.setmode(GPIO.BOARD)
         
         # Assign arguments to local data
-	self.l_en_pin     = l_en_pin    # Enable / PWM pin
-        self.l_en_freq    = freq        # PWM cycle frequency	    
+        self.l_en_pin     = l_en_pin    # Enable / PWM pin
+	self.l_en_freq    = freq        # PWM cycle frequency	    
         self.l_phase_pin  = l_phase_pin # Phase pin
         self.l_sln_pin    = l_sln_pin   # SLEEP NOT pin
         self.r_en_pin     = r_en_pin    # Enable / PWM pin
