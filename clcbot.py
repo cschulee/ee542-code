@@ -56,10 +56,10 @@ radio.startListening()
 GPIO.setmode(GPIO.BOARD)
 
 # Initialize camera
+global CAMERA_WIDTH, CAMERA_HEIGHT
 camera = picamera.PiCamera()
 camera.hflip = True
 camera.vflip = True
-global CAMERA_WIDTH, CAMERA_HEIGHT
 CAMERA_WIDTH  = 320
 CAMERA_HEIGHT = 240
 camera.resolution = (CAMERA_WIDTH,CAMERA_HEIGHT)
@@ -79,16 +79,16 @@ def msg_cb(channel):
     msg = null_char_strip(''.join(chr(i) for i in recv_buffer))
     print '---MESSAGE RECEIVED---  ' + msg
 
+    #Clear IRQ
+    radio.write_register(radio.STATUS,
+                         radio.read_register(radio.STATUS)| 0b01000000)
+    GPIO.setmode(GPIO.BOARD)
+
     if msg in cmds.keys():
         reset_watchdog = 1
         cmds[msg]()
     else:
         radio_payload = msg
-    
-    #Clear IRQ
-    radio.write_register(radio.STATUS,
-                         radio.read_register(radio.STATUS)| 0b01000000)
-    GPIO.setmode(GPIO.BOARD)
 
 def send_msg(payload):
     GPIO.setmode(GPIO.BCM)
