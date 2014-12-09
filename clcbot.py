@@ -118,6 +118,7 @@ def wait():
 
 def report_id():
     print '  CARRIER ' + players[0] + ' REPORTING FOR DUTY'
+    time.sleep(3)
     send_msg(players[0])
     send_msg('add_id')
 
@@ -300,9 +301,10 @@ def master():
         # Identify the players
         print '  CARRIER IDENTIFICATION'
         players = [me]
+        send_msg('report_id')
         start = time.time()
         while (len(players) < 4) & ((time.time() - start) < 10):
-            send_msg('report_id')
+            continue
 
         if len(players) == 4:
             form = 'quad'
@@ -396,6 +398,7 @@ def slave():
     global mode
     global reset_watchdog
     global radio_payload
+    mode ='slave'
     print 'SLAVE MODE'
 
     # Start watchdog with random timeout between [25,35] interval
@@ -438,7 +441,6 @@ GPIO.setup(12,GPIO.IN, pull_up_down = GPIO.PUD_UP)
 GPIO.add_event_detect(12, GPIO.FALLING, callback = msg_cb)
 
 # Start out as slave
-mode = 'slave'
 slave()
 
 
