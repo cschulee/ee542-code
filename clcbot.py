@@ -38,10 +38,9 @@ drive   = diff_drv.diff_drv(13,11,7,15,16,18,185)
 #mouse   = adns9800()
 
 # Initialize radio
-GPIO.setmode(GPIO.BCM)
 radio   = NRF24()
 pipes = [[0xf0, 0xf0, 0xf0, 0xf0, 0xe1], [0xf0, 0xf0, 0xf0, 0xf0, 0xd2]]
-radio.begin(0, 0,25,18) #set CE as 25, IRQ as 18
+radio.begin(0, 0,22,12) #set CE as GPIO 25, IRQ as GPIO 18
 radio_config = radio.read_register(0x00)
 radio.write_register(0x00, radio_config | 0x00110000) # Mask TX and RT interrupts
 radio.setRetries(15,15)
@@ -56,7 +55,6 @@ radio.startListening()
 radio.stopListening()
 radio.printDetails()
 radio.startListening()
-GPIO.setmode(GPIO.BOARD)
 
 # Initialize camera
 global CAMERA_WIDTH, CAMERA_HEIGHT
@@ -73,7 +71,6 @@ def mot_cb():
     #TODO what should be done when motion is detected
 
 def msg_cb(channel):
-    GPIO.setmode(GPIO.BCM)
     global cmds
     global radio_payload
     global reset_watchdog
@@ -85,7 +82,6 @@ def msg_cb(channel):
     #Clear IRQ
     radio.write_register(radio.STATUS,
                          radio.read_register(radio.STATUS)| 0b01000000)
-    GPIO.setmode(GPIO.BOARD)
 
     if msg in cmds.keys():
         reset_watchdog = 1
@@ -94,11 +90,9 @@ def msg_cb(channel):
         radio_payload = msg
 
 def send_msg(payload):
-    GPIO.setmode(GPIO.BCM)
     radio.stopListening()
-    ok = radio.write(payload)
+    radio.write(payload)
     radio.startListening()
-    GPIO.setmode(GPIO.BOARD)
 
 def null_char_strip(in_str):
     return in_str.rstrip('\00')
