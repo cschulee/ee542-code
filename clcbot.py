@@ -338,8 +338,7 @@ def master():
         start = time.time()
         send_msg('assemble')
         while (len(players) < num_players) | (time.time() - start < 10):
-            continue
-            
+            continue            
 
         # Track forward 10 sec
         print '  FWD 10 SEC'
