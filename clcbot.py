@@ -76,6 +76,7 @@ def msg_cb(channel):
     global reset_watchdog
     recv_buffer = []
     radio.read(recv_buffer)
+    radio.flush_rx()
     msg = null_char_strip(''.join(chr(i) for i in recv_buffer))
     print '---MESSAGE RECEIVED---  ' + msg
 
@@ -92,6 +93,7 @@ def msg_cb(channel):
 def send_msg(payload):
     radio.stopListening()
     radio.write(payload)
+    radio.flush_tx()
     radio.startListening()
 
 def null_char_strip(in_str):
