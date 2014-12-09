@@ -324,7 +324,6 @@ def master():
             send_msg(str(master_hdg))
             send_msg('update_hdg')
             send_msg('align')
-            align()
             
         # Assemble into formation
         print '  ASSEMBLE'
@@ -375,7 +374,8 @@ def master():
             track()
 
         # Turn 180 deg and start over
-        master_hdg = math.fmod(heading +180, 260)       
+        master_hdg = math.fmod(heading +180, 360)
+        align()
         continue
 
     # If knocked off, mode change to slave
