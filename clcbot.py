@@ -53,6 +53,9 @@ radio.setAutoAck(1)
 radio.openWritingPipe(pipes[0])
 radio.openReadingPipe(1, pipes[1])
 radio.startListening()
+radio.stopListening()
+radio.printDetails()
+radio.startListening()
 GPIO.setmode(GPIO.BOARD)
 
 # Initialize camera
