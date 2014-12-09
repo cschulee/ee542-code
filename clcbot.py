@@ -42,6 +42,8 @@ GPIO.setmode(GPIO.BCM)
 radio   = NRF24()
 pipes = [[0xf0, 0xf0, 0xf0, 0xf0, 0xe1], [0xf0, 0xf0, 0xf0, 0xf0, 0xd2]]
 radio.begin(0, 0,25,18) #set CE as 25, IRQ as 18
+radio_config = radio.read_register(0x00)
+radio.write_register(0x00, radio_config | 0x00110000) # Mask TX and RT interrupts
 radio.setRetries(15,15)
 radio.setPayloadSize(32)
 radio.setChannel(0x4c)
@@ -62,15 +64,12 @@ CAMERA_WIDTH  = 320
 CAMERA_HEIGHT = 240
 camera.resolution = (CAMERA_WIDTH,CAMERA_HEIGHT)
 
-# GPIO Mode - BCM
-GPIO.setmode(GPIO.BCM)
-
 # Define interrupt callbacks and compass thread
 def mot_cb():
     print '  MOTION CALLBACK'
     #TODO what should be done when motion is detected
 
-def msg_cb():
+def msg_cb(channel):
     GPIO.setmode(GPIO.BCM)
     global cmds
     global radio_payload
@@ -89,6 +88,11 @@ def msg_cb():
     #Clear IRQ
     radio.write_register(radio.STATUS,
                          radio.read_register(radio.STATUS)| 0b01000000)
+    GPIO.setmode(GPIO.BOARD)
+
+def send_msg(payload):
+    GPIO.setmode(GPIO.BCM)
+    radio.write(payload)
     GPIO.setmode(GPIO.BOARD)
 
 def null_char_strip(in_str):
@@ -110,8 +114,8 @@ def wait():
     drive.coast()
 
 def report_id():
-    radio.write(players[0])
-    radio.write('add_id')
+    send_msg(players[0])
+    send_msg('add_id')
 
 def add_id():
     global radio_payload
@@ -203,7 +207,7 @@ def assemble(pos):
 
     # Go to position
     navigate(x_offset,y_offset)    
-    radio.write(me)
+    send_msg(me)
 
 
 def track():
@@ -285,14 +289,14 @@ def master():
         # Wait just a second! Passivate any active bots, establish mastership
         start = time.time()
         while time.time() - start < 1:
-            radio.write('wait')
+            send_msg('wait')
 
         # Identify the players
         print '  CARRIER IDENTIFICATION'
         players = [me]
         start = time.time()
         while (len(players) < 4) & ((time.time() - start) < 30):
-            radio.write('report_id')
+            send_msg('report_id')
         if len(players) == 4:
             form = 'quad'
         else:
@@ -302,24 +306,24 @@ def master():
         print '  ASSIGN __' + str(form) + '__ GEOMETRY'
         start = time.time()
         while time.time() - start < 2:
-            radio.write(form)
-            radio.write('update_form')
+            send_msg(form)
+            send_msg('update_form')
 
         # Perform spot assignments
         print '  PERFORM COORDINATE ASSIGNMENT' 
         start = time.time()
         while time.time() - start < 2:
             for x in range(1,len(players)):
-                radio.write(players[x] + str(x))
-                radio.write('update_spot')
+                send_msg(players[x] + str(x))
+                send_msg('update_spot')
 
         # 30 sec align to current heading
         start = time.time()
         while time.time() - start < 30:
             master_hdg = heading
-            radio.write(str(master_hdg))
-            radio.write('update_hdg')
-            radio.write('align')
+            send_msg(str(master_hdg))
+            send_msg('update_hdg')
+            send_msg('align')
             align()
             
         # Assemble into formation
@@ -329,7 +333,7 @@ def master():
         start = time.time()
         start = time.time()
         while (len(players) < num_players) | (time.time() - start < 30):
-            radio.write('assemble')
+            send_msg('assemble')
 
         # Track forward 10 sec
         print '  FWD 10 SEC'
@@ -337,11 +341,11 @@ def master():
         master_rot = 0        
         start = time.time()
         while time.time() - start < 10:
-            radio.write(str(master_fwd))
-            radio.write('update_fwd')
-            radio.write(str(master_rot))
-            radio.write('update_rot')
-            radio.write('track')
+            send_msg(str(master_fwd))
+            send_msg('update_fwd')
+            send_msg(str(master_rot))
+            send_msg('update_rot')
+            send_msg('track')
             track()
 
         # Track backward 10 sec
@@ -350,11 +354,11 @@ def master():
         master_rot = 0        
         start = time.time()
         while time.time() - start < 10:
-            radio.write(str(master_fwd))
-            radio.write('update_fwd')
-            radio.write(str(master_rot))
-            radio.write('update_rot')
-            radio.write('track')
+            send_msg(str(master_fwd))
+            send_msg('update_fwd')
+            send_msg(str(master_rot))
+            send_msg('update_rot')
+            send_msg('track')
             track()
 
         # Track forward right 5 sec
@@ -363,11 +367,11 @@ def master():
         master_rot = 5
         start = time.time()
         while time.time() - start < 5:
-            radio.write(str(master_fwd))
-            radio.write('update_fwd')
-            radio.write(str(master_rot))
-            radio.write('update_rot')
-            radio.write('track')
+            send_msg(str(master_fwd))
+            send_msg('update_fwd')
+            send_msg(str(master_rot))
+            send_msg('update_rot')
+            send_msg('track')
             track()
 
         # Turn 180 deg and start over
