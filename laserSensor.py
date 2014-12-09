@@ -264,7 +264,7 @@ class adns9800:
 
     firmware.insert(0,REG_SROM_Load_Burst | 0x80)
 
-    def __init__():
+    def __init__(self):
         
         self.pinInterrupt = 10
         self.xydat = [0,0]
@@ -277,8 +277,8 @@ class adns9800:
         
         # Initialize pin 10 as interrupt (set up with pull down resistor)
         GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(pinInterrupt,GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(pinInterrupt,GPIO.FALLING, callback=opticalISR)
+        GPIO.setup(self.pinInterrupt,GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.add_event_detect(self.pinInterrupt,GPIO.FALLING, callback=self.opticalISR)
 
         # Reset SPI Port (NCS Chip active low)
         self.sensor.cshigh = True
@@ -287,42 +287,42 @@ class adns9800:
         time.sleep(10 / 1000000.0)
 
         # Write 0x5a to register to reset chip. All settings will default.
-        self.writeRegister(REG_Power_Up_Reset, 0x5A)
+        self.writeRegister(adns9800.REG_Power_Up_Reset, 0x5A)
         time.sleep(50 / 1000.0)
 
         # Read and discard registers 0x02 through 0x06
-        self.readRegister(REG_Motion)
-        self.readRegister(REG_Delta_X_L)
-        self.readRegister(REG_Delta_X_H)
-        self.readRegister(REG_Delta_Y_L)
-        self.readRegister(REG_Delta_Y_H)
+        self.readRegister(adns9800.REG_Motion)
+        self.readRegister(adns9800.REG_Delta_X_L)
+        self.readRegister(adns9800.REG_Delta_X_H)
+        self.readRegister(adns9800.REG_Delta_Y_L)
+        self.readRegister(adns9800.REG_Delta_Y_H)
 
         # send the firmware to the chip, cf p.18 of the datasheet
         print("Uploading firmware...");
         # set the configuration_IV register in 3k firmware mode
-        config_register = readRegister(REG_Configuration_IV)
-        self.writeRegister(REG_Configuration_IV, config_register | 0x02) # bit 1 = 1 for 3k mode, other bits are reserved 
+        config_register = self.readRegister(adns9800.REG_Configuration_IV)
+        self.writeRegister(adns9800.REG_Configuration_IV, config_register | 0x02) # bit 1 = 1 for 3k mode, other bits are reserved 
         time.sleep(50 / 1000.0)
 
         # write 0x1d in SROM_enable reg for initializing
-        self.writeRegister(REG_SROM_Enable, 0x1d)
+        self.writeRegister(adns9800.REG_SROM_Enable, 0x1d)
 
         # wait for more than one frame period
-        self.time.sleep(10/1000.0); # assume that the frame rate is as low as 100fps... even if it should never be that low
+        time.sleep(10/1000.0); # assume that the frame rate is as low as 100fps... even if it should never be that low
 
         # write 0x18 to SROM_enable to start SROM download
-        self.writeRegister(REG_SROM_Enable, 0x18)
+        self.writeRegister(adns9800.REG_SROM_Enable, 0x18)
         time.sleep(50 / 1000.0)
 
         # write the SROM file (=firmware data) 
-        self.sensor.xfer2(firmware)
+        self.sensor.xfer2(adns9800.firmware)
 
         # enable laser(bit 0 = 0b), in normal mode (bits 3,2,1 = 000b)
         # reading the actual value of the register is important because the real
         # default value is different from what is said in the datasheet, and if you
         # change the reserved bytes (like by writing 0x00...) it would not work.
-        laser_ctrl0 = self.readRegister(REG_LASER_CTRL0)
-        self.writeRegister(REG_LASER_CTRL0, laser_ctrl0 & 0xfe)
+        laser_ctrl0 = self.readRegister(adns9800.REG_LASER_CTRL0)
+        self.writeRegister(adns9800.REG_LASER_CTRL0, laser_ctrl0 & 0xfe)
 
         time.sleep(1/1000)
         print("Optical Chip Initialized")
@@ -330,41 +330,32 @@ class adns9800:
 
 
     # Two's compliment: stackoverflow.com/questions/1604464
-    #def twos_comp(val,bits):
-    #    if( val & 1 << (bits-1) != 0 ):
-    #        val -= 1 << bits
-    #    return val
-    
-    # Two's compliment: Reversed bit shift to correct direction? 
-    def twos_comp(msb, lsb):
-	    if (msb >> 7 == 0 ):
-	        return = dec(msb<<8 + lsb) # if 15th bit is 0, or 16 bit number is positive
-	    else:
-	        return = -1*dec(~(msb<<8+lsb)+1) #if 15th bit is 1, or 16 bit number is negative
+    def twos_comp(self,val,bits):
+        if( val & 1 << (bits-1) != 0 ):
+            val -= (1 << bits)
+        return val
 
-
-    def opticalISR(channel):
-        self.readRegister(REG_Motion) # Prepare chip for motion read
+    def opticalISR(self,channel):
+        self.readRegister(adns9800.REG_Motion) # Prepare chip for motion read
         now = time.time()
+        x_lsb  = self.readRegister(adns9800.REG_Delta_X_L)
+        x_msb  = self.readRegister(adns9800.REG_Delta_X_H)
+        deltaX = (self.twos_comp( x_lsb | ( x_msb << 8 ) ,16)) / 450.
 
-        x_lsb  = readRegister(REG_Delta_X_L)
-        x_msb  = readRegister(REG_Delta_X_H)
-        deltaX = (twos_comp( x_lsb | ( x_msb << 8 ) ,16)) / 450.
+        y_lsb  = self.readRegister(adns9800.REG_Delta_Y_L)
+        y_msb  = self.readRegister(adns9800.REG_Delta_Y_H)
+        deltaY = (self.twos_comp( y_lsb | ( y_msb << 8 ) ,16)) / 450.
 
-        y_lsb  = readRegister(REG_Delta_Y_L)
-        y_msb  = readRegister(REG_Delta_Y_H)
-        deltaY = (twos_comp( y_lsb | ( y_msb << 8 ) ,16)) / 450.
-
-        deltat = now - prev_data[0]
+        deltat = now - self.prev_data[0]
 
         xspd = deltaX/deltat
         yspd = deltaY/deltat
-        x_sum += deltaX
-        y_sum += deltaY
+        self.x_sum += deltaX
+        self.y_sum += deltaY
 
         #print str(xydat[0]) + " " + str(xydat[1])
         out = "delta: "  + str(int(deltaX)) + ", " + str(int(deltaY)) + " "
-        out += "sum: "   + str(int(x_sum))  + ", " + str(int(y_sum))  + " "
+        out += "sum: "   + str(int(self.x_sum))  + ", " + str(int(self.y_sum))  + " "
         out += "speed: " + str(int(xspd))   + ", " + str(int(yspd))
         print out
 
@@ -373,16 +364,18 @@ class adns9800:
     # Function: Send payload to register
     # 	reg (hexidecimal)   = register to write to
     # 	value (hexidecimal) = value to send to register
-    def writeRegister(reg, val):
+    def writeRegister(self,reg, val):
+        self.sensor.readbytes(1)
         buf = [reg | 0x80, int(val & 0xff)]
         delay_usecs = 20
         response = self.sensor.xfer2(buf,0,delay_usecs)[0]
         time.sleep(100/1000000)
+        self.sensor.readbytes(1)
         return response
 
     # Function: Return payload from register
     # 	reg (hexidecimal)   = register to read from
-    def readRegister(reg):
+    def readRegister(self,reg):
         delay_usecs = 100
         buf = [reg & 0x7f,0x00]
         response = self.sensor.xfer2(buf,0,delay_usecs)[1]
