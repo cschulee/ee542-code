@@ -62,9 +62,6 @@ global CAMERA_WIDTH, CAMERA_HEIGHT
 camera = picamera.PiCamera()
 camera.hflip = True
 camera.vflip = True
-CAMERA_WIDTH  = 320
-CAMERA_HEIGHT = 240
-camera.resolution = (CAMERA_WIDTH,CAMERA_HEIGHT)
 
 # Define interrupt callbacks and compass thread
 def mot_cb():
@@ -170,9 +167,6 @@ def assemble():
     offsets = [[0,0],[0,16],[16,0],[16,16]]
     target_pos = offsets[spot]
 
-    # Define camera distance scale factor
-    SCALE_FACTOR = 1
-
     # Capture image
     IMAGE        = '/home/pi/ee542-code/images/align.jpg'
     IMAGE_THRESH = '/home/pi/ee542-code/images/align_threshed.jpg'
@@ -184,16 +178,16 @@ def assemble():
     hsv_img = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
 
     # Define min and max color range
-    GREEN_MIN = np.array([25,100,200],np.uint8)
-    GREEN_MAX = np.array([80,220,255],np.uint8)
+    BLUE_MIN= np.array([80,100,150],np.uint8)
+    BLUE_MAX= np.array([120,255,255],np.uint8)
 
     # Threshold the image - results in b&w graphic where
     #  in-threshold pixels are white and out-of-threshold
     #  pixels are black
-    img_threshed = cv2.inRange(hsv_img, GREEN_MIN, GREEN_MAX)
+    img_threshed = cv2.inRange(hsv_img, BLUE_MIN, BLUE_MAX)
 
     # Find the circles
-    circles = cv2.HoughCircles(img_threshed,cv2.cv.CV_HOUGH_GRADIENT,5,75,param1=100,param2=5,minRadius=0,maxRadius=25)
+    circles = cv2.HoughCircles(img_threshed,cv2.cv.CV_HOUGH_GRADIENT,10,5,param1=200,param2=5,minRadius=0,maxRadius=25)
 
     if (circles != None) and (len(circles[0]) > 1): # Enough circles found to do something
                    
@@ -211,8 +205,8 @@ def assemble():
         h = abs(circles[0][0][1] - circles[0][1][1])
 
         # Determine offsets
-        x_offset = target_pos[0] - ((avg_x - CAMERA_WIDTH/2) * SCALE_FACTOR)
-        y_offset = target_pos[1] - (h * SCALE_FACTOR)
+        x_offset = target_pos[0] - (avg_x - (640/2))/10
+        y_offset = target_pos[1] -h/2.4
 
         # Go to position
         navigate(x_offset,y_offset)
