@@ -10,7 +10,9 @@ import RPi.GPIO as GPIO
 import random as rand
 import picamera, cv2, diff_drv, threading, time, string, math,io
 
+
 # Global data
+global heading
 global compass
 global compass_enable
 global mode
@@ -28,12 +30,15 @@ global me
 compass = hmc5883l()
 
 # Initialize motor driver
-drive   = diff_drv.diff_drv(4,17,27,22,23,24,185)
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BOARD)
+drive   = diff_drv.diff_drv(13,11,7,15,16,18,185)
 
 # Initialize laser sensor
 #mouse   = adns9800()
 
 # Initialize radio
+GPIO.setmode(GPIO.BCM)
 radio   = NRF24()
 pipes = [[0xf0, 0xf0, 0xf0, 0xf0, 0xe1], [0xf0, 0xf0, 0xf0, 0xf0, 0xd2]]
 radio.begin(0, 0,25,18) #set CE as 25, IRQ as 18
@@ -46,6 +51,7 @@ radio.setAutoAck(1)
 radio.openWritingPipe(pipes[0])
 radio.openReadingPipe(1, pipes[1])
 radio.startListening()
+GPIO.setmode(GPIO.BOARD)
 
 # Initialize camera
 camera = picamera.PiCamera()
@@ -56,26 +62,8 @@ CAMERA_WIDTH  = 320
 CAMERA_HEIGHT = 240
 camera.resolution = (CAMERA_WIDTH,CAMERA_HEIGHT)
 
-# List of possible radio commands from master
-global cmds
-cmds = {'wait'        : wait,
-        'report_id'   : report_id,
-        'add_id'      : add_id,
-        'update_spot' : update_spot,
-        'update_form' : update_form,
-        'update_hdg'  : update_hdg,
-        'align'       : align,
-        'assemble'    : assemble,
-        'update_fwd'  : update_fwd,
-        'update_rot'  : update_rot,
-        'track'       : track}
-
 # GPIO Mode - BCM
 GPIO.setmode(GPIO.BCM)
-
-# Initialize interrupts
-GPIO.add_event_detect(15, GPIO.FALLING, callback = mot_cb)
-GPIO.add_event_detect(18, GPIO.FALLING, callback = msg_cb)
 
 # Define interrupt callbacks and compass thread
 def mot_cb():
@@ -83,6 +71,7 @@ def mot_cb():
     #TODO what should be done when motion is detected
 
 def msg_cb():
+    GPIO.setmode(GPIO.BCM)
     global cmds
     global radio_payload
     global reset_watchdog
@@ -100,6 +89,7 @@ def msg_cb():
     #Clear IRQ
     radio.write_register(radio.STATUS,
                          radio.read_register(radio.STATUS)| 0b01000000)
+    GPIO.setmode(GPIO.BOARD)
 
 def null_char_strip(in_str):
     return in_str.rstrip('\00')
@@ -113,6 +103,7 @@ def get_heading(DELTAT):
         heading = compass.heading()
         time.sleep(DELTAT)
 
+# Radio commands
 def wait():
     global mode
     print '  WAIT'
@@ -142,6 +133,16 @@ def update_hdg():
     global radio_payload
     global master_hdg
     master_hdg = float(radio_payload)
+
+def update_fwd():
+    global radio_payload
+    global master_fwd
+    master_fwd = float(radio_payload)
+
+def update_rot():
+    global radio_payload
+    global master_rot
+    master_rot = float(radio_payload)
 
 def align():
     global heading
@@ -186,7 +187,7 @@ def assemble(pos):
     # Mark the circles
     for i in circles[0,:]:
         cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
-	cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
+        cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
 
     # Save the files back to disk to view later
     cv2.imwrite(IMAGE_THRESHED,img_threshed)
@@ -215,7 +216,7 @@ def navigate(x,y): # In inches
     global heading
     global master_hdg
 
-    if (x = 0) & (y = 0):
+    if (x == 0) & (y == 0):
         return
 
     if abs(x) > 6 : # Only adjust for lateral excursions > 6 inches
@@ -250,6 +251,20 @@ def navigate(x,y): # In inches
     drive.coast()
     master_hdg = master_hdg_mem
     align()
+
+# List of possible radio commands from master
+global cmds
+cmds = {'wait'        : wait,
+        'report_id'   : report_id,
+        'add_id'      : add_id,
+        'update_spot' : update_spot,
+        'update_form' : update_form,
+        'update_hdg'  : update_hdg,
+        'align'       : align,
+        'assemble'    : assemble,
+        'update_fwd'  : update_fwd,
+        'update_rot'  : update_rot,
+        'track'       : track}
     
 def master():
     global mode
@@ -273,9 +288,10 @@ def master():
             radio.write('wait')
 
         # Identify the players
+        print '  CARRIER IDENTIFICATION'
         players = [me]
         start = time.time()
-        while len(players) < 4 & time.time() - start < 30:
+        while (len(players) < 4) & ((time.time() - start) < 30):
             radio.write('report_id')
         if len(players) == 4:
             form = 'quad'
@@ -283,66 +299,73 @@ def master():
             form = 'tri'
 
         # Update formation geometry
+        print '  ASSIGN __' + str(form) + '__ GEOMETRY'
         start = time.time()
         while time.time() - start < 2:
             radio.write(form)
             radio.write('update_form')
 
         # Perform spot assignments
+        print '  PERFORM COORDINATE ASSIGNMENT' 
         start = time.time()
         while time.time() - start < 2:
             for x in range(1,len(players)):
                 radio.write(players[x] + str(x))
                 radio.write('update_spot')
 
-        # 2 min align to current heading
+        # 30 sec align to current heading
         start = time.time()
-        while time.time() - start < 2*60:
-            radio.write(master_hdg)
+        while time.time() - start < 30:
+            master_hdg = heading
+            radio.write(str(master_hdg))
             radio.write('update_hdg')
             radio.write('align')
             align()
             
         # Assemble into formation
+        print '  ASSEMBLE'
         num_players = len(players)
         players = [me]
         start = time.time()
-        start = time.localtime().tm_min
-        while len(players) < num_players | time.time() - start < 2*60:
+        start = time.time()
+        while (len(players) < num_players) | (time.time() - start < 30):
             radio.write('assemble')
 
         # Track forward 10 sec
+        print '  FWD 10 SEC'
         master_fwd = 10
         master_rot = 0        
         start = time.time()
         while time.time() - start < 10:
-            radio.write(master_fwd)
+            radio.write(str(master_fwd))
             radio.write('update_fwd')
-            radio.write(master_rot)
+            radio.write(str(master_rot))
             radio.write('update_rot')
             radio.write('track')
             track()
 
         # Track backward 10 sec
+        print '  BACKWARD 10 SEC'
         master_fwd = -10
         master_rot = 0        
         start = time.time()
         while time.time() - start < 10:
-            radio.write(master_fwd)
+            radio.write(str(master_fwd))
             radio.write('update_fwd')
-            radio.write(master_rot)
+            radio.write(str(master_rot))
             radio.write('update_rot')
             radio.write('track')
             track()
 
         # Track forward right 5 sec
+        print '  FWD RIGHT 5 SEC'
         master_fwd = 10
         master_rot = 5
         start = time.time()
         while time.time() - start < 5:
-            radio.write(master_fwd)
+            radio.write(str(master_fwd))
             radio.write('update_fwd')
-            radio.write(master_rot)
+            radio.write(str(master_rot))
             radio.write('update_rot')
             radio.write('track')
             track()
@@ -358,8 +381,6 @@ def slave():
     global mode
     global reset_watchdog
     print 'SLAVE MODE'
-    
-    wait()
 
     # Start watchdog with random timeout between [25,35] interval
     reset_watchdog = 0
@@ -381,6 +402,7 @@ def watchdog(t_max):
         if reset_watchdog == 1:
             reset_watchdog = 0
             t = t_max
+        print int(t)
         t -= 1
         time.sleep(1)
     mode = 'master' # Initiate mode change
@@ -394,7 +416,13 @@ compass_enable = True
 compassThread = threading.Thread(target=get_heading,name='compassThread', args = ( 0.04, ))
 compassThread.start()
 
+# Initialize interrupts
+#GPIO.add_event_detect(10, GPIO.FALLING, callback = mot_cb)
+GPIO.setup(12,GPIO.IN, pull_up_down = GPIO.PUD_UP)
+GPIO.add_event_detect(12, GPIO.FALLING, callback = msg_cb)
+
 # Start out as slave
+mode = 'slave'
 slave()
 
 
