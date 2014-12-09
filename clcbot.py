@@ -95,6 +95,7 @@ def send_msg(payload):
     radio.write(payload)
     radio.flush_tx()
     radio.startListening()
+    time.sleep(1)
 
 def null_char_strip(in_str):
     return in_str.rstrip('\00')
@@ -115,6 +116,7 @@ def wait():
     drive.coast()
 
 def report_id():
+    print '  CARRIER __' + players[0] + '__ REPORTING FOR DUTY'
     send_msg(players[0])
     send_msg('add_id')
 
@@ -296,7 +298,7 @@ def master():
         print '  CARRIER IDENTIFICATION'
         players = [me]
         start = time.time()
-        while (len(players) < 4) & ((time.time() - start) < 30):
+        while (len(players) < 4) & ((time.time() - start) < 10):
             send_msg('report_id')
         if len(players) == 4:
             form = 'quad'
