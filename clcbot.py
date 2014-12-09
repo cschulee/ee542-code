@@ -85,7 +85,7 @@ def msg_cb(channel):
 
     if msg in cmds.keys():
         reset_watchdog = 1
-        print '---COMMAND RECEIVED---  ' + msg
+        print '    COMMAND RECEIVED:  ' + msg
         cmds[msg]()
     else:
         radio_payload = msg
@@ -133,7 +133,7 @@ def update_spot():
         spot = int(radio_payload[-1])
 
 def update_form():
-    global radio_paylaod
+    global radio_payload
     global form
     form = radio_payload
 
@@ -156,10 +156,10 @@ def align():
     global heading
     global master_hdg
     print '  ALIGNING TO HEADING: ' + str(master_hdg) + ' DEGREES'
-    while abs(heading - master_hdg) > 5:
+    while abs(heading - master_hdg) > 10:
         drive.drive(0,10)
 
-def assemble(pos):
+def assemble():
     global spot, CAMERA_WIDTH, CAMERA_HEIGHT
     print '  GOING TO ASSEMBLY'
 
@@ -323,6 +323,7 @@ def master():
                 send_msg('update_spot')
 
         # 10 sec align to current heading
+        print '  ALIGN, PLEASE...'
         start = time.time()
         while time.time() - start < 10:
             master_hdg = heading
@@ -331,13 +332,14 @@ def master():
             send_msg('align')
             
         # Assemble into formation
-        print '  ASSEMBLE'
+        print '  ASSEMBLE, PLEASE...'
         num_players = len(players)
         players = [me]
         start = time.time()
-        start = time.time()
-        while (len(players) < num_players) | (time.time() - start < 30):
-            send_msg('assemble')
+        send_msg('assemble')
+        while (len(players) < num_players) | (time.time() - start < 10):
+            continue
+            
 
         # Track forward 10 sec
         print '  FWD 10 SEC'
