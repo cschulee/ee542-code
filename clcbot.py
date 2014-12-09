@@ -95,7 +95,9 @@ def msg_cb(channel):
 
 def send_msg(payload):
     GPIO.setmode(GPIO.BCM)
+    radio.stopListening()
     radio.write(payload)
+    radio.startListening()
     GPIO.setmode(GPIO.BOARD)
 
 def null_char_strip(in_str):
