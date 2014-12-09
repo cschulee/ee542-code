@@ -117,7 +117,7 @@ def wait():
     drive.coast()
 
 def report_id():
-    print '  CARRIER __' + players[0] + '__ REPORTING FOR DUTY'
+    print '  CARRIER ' + players[0] + ' REPORTING FOR DUTY'
     send_msg(players[0])
     send_msg('add_id')
 
@@ -125,6 +125,7 @@ def add_id():
     global radio_payload
     if radio_payload not in players:
         players.append(radio_payload)
+        print'  HELLO ' + radio_payload + ' WELCOME ABOARD'
 
 def update_spot():
     global radio_payload
@@ -302,10 +303,14 @@ def master():
         start = time.time()
         while (len(players) < 4) & ((time.time() - start) < 10):
             send_msg('report_id')
-        if len(players) == 4:
+
+         if len(players) == 4:
             form = 'quad'
         else:
             form = 'tri'
+
+       # Let the transmissions settle out
+        time.sleep(3)
 
         # Update formation geometry
         print '  ASSIGN __' + str(form) + '__ GEOMETRY'
