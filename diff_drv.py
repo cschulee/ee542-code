@@ -65,6 +65,9 @@ class diff_drv:
         self.fwd_ctrl = diff_drv.ENABLE
         self.rot_ctrl = diff_drv.ENABLE
 
+        # Zero Trim
+        self.trim = 0
+
     def drive(self,fwd_dc, rot_dc=0, trim=0):
         # Mix speed, rotation, and trim
         # Speed is positive forward
