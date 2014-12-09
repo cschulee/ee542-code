@@ -194,25 +194,31 @@ def assemble():
     # Find the circles
     circles = cv2.HoughCircles(img_threshed,cv2.cv.CV_HOUGH_GRADIENT,5,75,param1=100,param2=5,minRadius=0,maxRadius=25)
 
-    # Mark the circles
-    for i in circles[0,:]:
-        cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
-        cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
+    if len(circles[0] > 1): # Enough circles found to do something
+                   
+        # Mark the circles
+        for i in circles[0,:]:
+            cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
+            cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
 
-    # Save the files back to disk to view later
-    cv2.imwrite(IMAGE_THRESHED,img_threshed)
-    cv2.imwrite(IMAGE_MARKED,img)
+        # Save the files back to disk to view later
+        cv2.imwrite(IMAGE_THRESHED,img_threshed)
+        cv2.imwrite(IMAGE_MARKED,img)
 
-    # Find average x and height of targets
-    avg_x = np.average([x[0] for x in circles[0]])
-    h = abs(circles[0][0][1] - circles[0][1][1])
+        # Find average x and height of targets
+        avg_x = np.average([x[0] for x in circles[0]])
+        h = abs(circles[0][0][1] - circles[0][1][1])
 
-    # Determine offsets
-    x_offset = target_pos[0] - ((avg_x - CAMERA_WIDTH/2) * SCALE_FACTOR)
-    y_offset = target_pos[1] - (h * SCALE_FACTOR)
+        # Determine offsets
+        x_offset = target_pos[0] - ((avg_x - CAMERA_WIDTH/2) * SCALE_FACTOR)
+        y_offset = target_pos[1] - (h * SCALE_FACTOR)
 
-    # Go to position
-    navigate(x_offset,y_offset)    
+        # Go to position
+        navigate(x_offset,y_offset)
+
+    else:
+        print '  SORRY CAPTAIN, ALL IS LOST'
+        
     send_msg(me)
 
 
@@ -308,8 +314,10 @@ def master():
 
         if len(players) == 4:
             form = 'quad'
-        else:
+        elif len(players) == 3:
             form = 'tri'
+        else:
+            form = 'line'
 
        # Let the transmissions settle out
         time.sleep(3)
@@ -317,7 +325,7 @@ def master():
         # Update formation geometry
         print '  ASSIGN __' + str(form) + '__ GEOMETRY'
         start = time.time()
-        while time.time() - start < 2:
+        while time.time() - start < 2:fdz
             send_msg(form)
             send_msg('update_form')
 
@@ -344,7 +352,7 @@ def master():
         players = [me]
         start = time.time()
         send_msg('assemble')
-        while (len(players) < num_players) | (time.time() - start < 10):
+        while (len(players) < num_players) & (time.time() - start < 10):
             continue            
 
         # Track forward 10 sec
