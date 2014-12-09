@@ -172,8 +172,8 @@ class NRF24:
     child_pipe_enable = [ERX_P0, ERX_P1, ERX_P2, ERX_P3, ERX_P4, ERX_P5]
 
     def __init__(self):
-        GPIO.setmode(GPIO.BCM)
-        self.ce_pin = "25"
+        GPIO.setmode(GPIO.BOARD)
+        self.ce_pin = "22"
         self.irq_pin = "P9_16"
         self.channel = 76
         self.data_rate = NRF24.BR_1MBPS
