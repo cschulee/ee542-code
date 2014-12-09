@@ -325,7 +325,7 @@ def master():
         # Update formation geometry
         print '  ASSIGN __' + str(form) + '__ GEOMETRY'
         start = time.time()
-        while time.time() - start < 2:fdz
+        while time.time() - start < 2:
             send_msg(form)
             send_msg('update_form')
 
