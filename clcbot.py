@@ -195,7 +195,7 @@ def assemble():
     # Find the circles
     circles = cv2.HoughCircles(img_threshed,cv2.cv.CV_HOUGH_GRADIENT,5,75,param1=100,param2=5,minRadius=0,maxRadius=25)
 
-    if len(circles[0] > 1): # Enough circles found to do something
+    if (circles != None) and (len(circles[0]) > 1): # Enough circles found to do something
                    
         # Mark the circles
         for i in circles[0,:]:
